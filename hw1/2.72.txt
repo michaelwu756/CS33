@@ -1,0 +1,15 @@
+2.72
+
+A) sizeof(val) returns a value of the type size_t, which is defined as an
+unsigned type in stddef.h. Thus in the expression maxbytes-sizeof(val)>=0,
+maxbytes is cast from a signed type to an unsigned type, following C's conversion
+rules. Then maxbytes-sizeof(val) gives an unsigned value, which is by definition
+always greater than or equal to zero, so the boolean expression always evaluates
+to true.
+
+B)
+The conditional should be
+
+maxbytes-(int)sizeof(val)>=0
+
+to ensure that the left side of the expression results in a signed type.

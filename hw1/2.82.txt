@@ -1,0 +1,108 @@
+2.82
+
+A) (x<y)==(-x>-y)
+
+This fails for x=INT_MIN, y=0. This is because the complement -x is
+INT_MIN itself. Doing -INT_MIN overflows and yields INT_MIN. So on the left you
+have (INT_MIN<0) which is true, and (INT_MIN>0) which is false. So the two sides
+are not equal and the expression does not always equal 1.
+
+B) ((x+y)<<4)+y-x==17*y+15*x
+
+This always yields one. This is because left shifting by n bits represents
+multiplication by 2^n in two's complement. So we have
+
+((x+y)<<4)+y-x=((x+y)*2^4)+y-x=(16-1)*x+(16+1)*y
+((x+y)<<4)+y-x=17*y+15*x
+
+If one side overflows, the other will overflow by the same amount and it will
+still result in a true expression. So the expression is always true.
+
+C) ~x+~y+1 == ~(x+y)
+
+This always yields one. In two's complement ~ is the bitwise complement and
+yields a number
+
+~x=-x-1
+
+This is because of the identity -x=~x+1. So
+
+~x+~y+1=-x-y-1
+~(x+y)=-(x+y)-1=-x-y-1
+~x+~y+1=~(x+y)
+
+and so the expression always evaluates to true.
+
+D) (ux-uy)=-(unsigned)(y-x)
+
+This always yields one because subtraction in two's complement is performed the
+same as subtraction in unsigned arithmetic, when looking at the binary
+representations of the numbers. So the casts to unsigned or signed do not matter
+since the bit representation of x and y are the same as ux and uy
+respectively. Unsigned arithmetic for a word size of 32 bits is arithmetic mod
+2^32. So using regular arithmetic and applying mod 32 to the results gives
+
+(ux-uy)=-(unsigned)(y-x) //casts can be ignored, ux=x and uy=y in binary
+x-y=-(y-x) //distribute minus sign
+x-y=x-y //apply modulo
+(x-y) mod 2^32 = (x-y) mod 2^32
+
+so the left and right sides will always be equal, and the expression is true.
+
+E) ((x>>2)<<2)<=x)
+
+This always yields one.
+This has the effect of replacing the rightmost two bits in x with 0's. Because x
+in two's complement with 32 bits is defined as
+
+x= -1*x_31*2^31 + sum_{i=0}^30 x_i*2^i
+
+or
+
+x= -1*x_31*2^31 + sum_{i=2}^30 x_i*2^i + x_1*2 + x_0*1
+
+where x_i denotes the ith bit of x, we see that if the rightmost two bits x_0
+and x_1 are set to zero, we get
+
+((x>>2)<<2)= -1*x_31*2^31 + sum_{i=2}^30 x_i*2^i
+
+Then
+
+0 <= x_1*2 + x_0*1
+-1*x_31*2^31 + sum_{i=2}^30 x_i*2^i <= -1*x_31*2^31 + sum_{i=2}^30 x_i*2^i + x_1*2 + x_0*1
+((x>>2)<<2)<=x
+
+which must be true.
+
+F) x >> 1 == (ux >> 1) + (ux & (-1 << 31))
+
+This will always yield one. Both x and ux have the same initial bit
+pattern. When they are shifted, if the largest bit is zero, we will get that
+x>>1 has a leading zero inserted, then everything else is shifted right by
+one. This is an arithmetic shift. Doing a logical shift on ux to the right by
+one also inserts a leading zero and shifts everything to the right by one. Then
+
+x>>1==ux>>1
+
+(-1<<31) can be represented as 0x80000000, so what (ux & (-1<<31)) does is
+preserve the leading bit of ux. In this case the leading bit is zero, so a zero
+is added to the right side of the expression and we get
+
+x>>1=ux>>1=(ux>>1) + 0 = (ux >> 1) + (ux & (-1 << 31))
+
+which makes the expression true. If the leading bit is one, then we get that
+x>>1 adds a one to the left when shifting. ux>>1 adds a zero to the left when
+shifting. However, (ux & (-1<<31)) preserves the leading bit of ux, and adding
+
+(ux>>1)+(ux & (-1<<31))
+
+is the same as ux>>1, except with a one in the leading bit. This is the same as
+the bit representation for x>>1. So then the expression will be true. Thus the
+expression is true regardless of whether the leading bit is zero or one, so it
+is always true.
+
+G) x % 128 == (x & 127)
+
+This fails for x=-1. Taking the modulo gives -1, while doing x&127 is equivalent
+to looking only at the last seven bits of x, which are 111 1111 which gives the
+value 127. -1 is not equal to 127, so the expression is not true.

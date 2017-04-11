@@ -139,38 +139,56 @@ NOTES:
  *   Rating: 4 
  */
 int bang(int x) {
-  x=x|(x>>1);
-  x=x|(x>>2);
-  x=x|(x>>4);
-  x=x|(x>>8);
-  x=x|(x>>16);
-  return ~x&(0x1);
+  /*If x is not zero, then either x or its complement must be negative. So
+    using bitwise or on a nonzero number and its complement ~x+1 will result in a 1
+    in the leading digit. Then I shift this right by 31 to move the sign bit to
+    the first bit and complement it so that all nonzero numbers map to zero. Zero
+    will map to a string of 32 ones, which I mask with 1 to return 1. So this
+    returns 1 if x is zero, 0 otherwise. This is the behaviour of !.
+   */
+  return ~((x|(~x+1))>>31)&1;
 }
+
 /*
  * bitCount - returns count of number of 1's in word
- *   Examples: bitCount(5) = 2, bitCount(7) = 3
- *   Legal ops: ! ~ & ^ | + << >>
- *   Max ops: 40
- *   Rating: 4
+ * Examples: bitCount(5) = 2, bitCount(7) = 3
+ * Legal ops: ! ~ & ^ | + << >>
+ * Max ops: 40
+ * Rating: 4
  */
 int bitCount(int x) {
-  int hex0 = x&0xF;
-  int hex1 = (x>>4)&0xF;
-  int hex2 = (x>>8)&0xF;
-  int hex3 = (x>>12)&0xF;
-  int hex4 = (x>>16)&0xF;
-  int hex5 = (x>>20)&0xF;
-  int hex6 = (x>>24)&0xF;
-  int hex7 = (x>>28)&0xF;
+  /*This code creates 5 masks, in order they are 0x55555555, 0x33333333,
+    0x0F0F0F0F, 0x00FF00FF, and 0x0000FFFF. Then it uses the 0x55555555 mask,
+    which is an alternating string of zeros and ones, to add each digit to the
+    one to the right of it. This generates a string of numbers every two bits,
+    whose sums represents the number of ones in x. Then each two bit number is
+    added to the two bit number to the right with the second mask, and so on
+    with four bits and the third mask, eight bits and the fourth mask, and
+    finally sixteen bits and the fifth mask. Then that leaves one number that
+    occupies all 32 bits that represents the total number of ones in the
+    original number x.
+   */
+  int mask1 = 0x55;
+  int mask2 = 0x33;
+  int mask3 = 0x0F;
+  int mask4 = 0xFF;
+  int mask5 = 0xFF;
+  mask1|=mask1<<8;
+  mask1|=mask1<<16;
+  mask2|=mask2<<8;
+  mask2|=mask2<<16;
+  mask3|=mask3<<8;
+  mask3|=mask3<<16;
+  mask4|=mask4<<16;
+  mask5|=mask5<<8;
 
-  return (hex0>>1)+(hex0&1)
-    +(hex1>>1)+(hex1&1)
-    +(hex2>>1)+(hex2&1)
-    +(hex3>>1)+(hex3&1)
-    +(hex4>>1)+(hex4&1)
-    +(hex5>>1)+(hex5&1)
-    +(hex6>>1)+(hex6&1)
-    +(hex7>>1)+(hex7&1);
+  x=(x&mask1)+((x>>1)&mask1);
+  x=(x&mask2)+((x>>2)&mask2);
+  x=(x&mask3)+((x>>4)&mask3);
+  x=(x&mask4)+((x>>8)&mask4);
+  x=(x&mask5)+((x>>16)&mask5);
+  
+  return x;
 }
 /* 
  * bitOr - x|y using only ~ and & 
@@ -180,6 +198,7 @@ int bitCount(int x) {
  *   Rating: 1
  */
 int bitOr(int x, int y) {
+  /*This uses demorgans law and the fact that (x or y) = (not x) nand (not y) */
   return ~(~x&~y);
 }
 /*
@@ -197,7 +216,21 @@ int bitOr(int x, int y) {
  *   Rating: 4
  */
 int bitRepeat(int x, int n) {
-  return 2;
+  /*This casts x as an unsigned integer a and uses logical shift to make the
+    first 32-n bits from the left zero, leaving n bits on the right. Then it
+    uses shifts to fill in the spaces to the left of the first n bits. To ensure
+    that each shift is defined, I made sure to shift by n multiple times rather
+    than shifting by 2*n, 4*n, 8*n, and 16*n.
+   */
+  unsigned int a = x;
+  int emptybits = 32-n;
+  x=(a<<emptybits)>>emptybits;
+  x=x|x<<n;
+  x=x|x<<n<<n;
+  x=x|x<<n<<n<<n<<n;
+  x=x|x<<n<<n<<n<<n<<n<<n<<n<<n;
+  x=x|x<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n<<n;
+  return x;
 }
 /* 
  * fitsBits - return 1 if x can be represented as an 
@@ -209,6 +242,11 @@ int bitRepeat(int x, int n) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
+  /*If x can fit in n bits, then x will consist of 32-(n-1) leading digits of either
+    all ones or all zeros. My implementation shifts x to the right by
+    (n-1). Then if x is all ones or all zeros, it can be represented in n bits,
+    so the function returns 1. For everything else it returns zero.
+   */
   x=x>>(n+~0);
   return !x|!~x;
 }
@@ -221,6 +259,9 @@ int fitsBits(int x, int n) {
  *   Rating: 2
  */
 int getByte(int x, int n) {
+  /*This shifts x to the right by n*8 bits then uses a mask to extract the
+    rightmost two bits, which is the bit we want.
+  */
   return (x>>(n<<3))&0xFF;
 }
 /* 
@@ -231,10 +272,23 @@ int getByte(int x, int n) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  int difference = x+~y+1;
+  /*My implementation first checks if the signs of x and y are different. It
+    does this by using sign extension so that xPosYNeg is all ones if x is
+    positive and y is negative, and zero otherwise. The similar concept applies
+    for yPosXNeg. I also calculate the difference between y and x by using the
+    fact that -x=~x+1. I will only use this if the signs of x and y match to
+    prevent overflow. In my return statement I use a mask for the first
+    bit. Then I ensure that I always return zero if x is positive and y is
+    negative and always return one if y is positive and x is negative. In the
+    case that both signs match, I look at the value of the difference y-x. This
+    cannot overflow because the signs of x and y are the same. If this is
+    positive or zero then we want to return 1, so we right shift by 31 to get
+    the leading bit and complement it with ~(difference>>31).
+   */
   int xPosYNeg = ~(x>>31)&(y>>31);
   int yPosXNeg = (x>>31)&~(y>>31);
-  return 1&~xPosYNeg&(yPosXNeg|!difference|(difference>>31));
+  int difference = y+~x+1;
+  return 1&~xPosYNeg&(yPosXNeg|~(difference>>31));
 }
 /* 
  * isPositive - return 1 if x > 0, return 0 otherwise 
@@ -244,7 +298,13 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 3
  */
 int isPositive(int x) {
-  return !(x>>31)&!(!x);
+  /*This uses the fact that positive numbers and zero lead with 0. So shifting x
+    to the right by 31 and complementing it results in a string of ones when the
+    leading digit is zero. Using !(!x) creates a mask for the first digit that
+    is 1 when x is not zero, and zero when x is zero. So this gives us 1 only
+    when x is positive.
+   */
+  return ~(x>>31)&!(!x);
 }
 /* 
  * logicalShift - shift x to the right by n, using a logical shift
@@ -255,6 +315,11 @@ int isPositive(int x) {
  *   Rating: 3 
  */
 int logicalShift(int x, int n) {
+  /*This left shifts 1 so that the ones digit occupies the (31-n)th bit position,
+    then copies that one to the right to create a mask that preserves everything
+    up and including the (31-n)th bit of (x>>n). This sets any ones added on the
+    left when arithmetically shifting to zero, which is the same as a logical shift.
+   */
   int mask = 0x1<<(32+~n);
   mask = mask|mask>>1;
   mask = mask|mask>>2;
@@ -270,5 +335,8 @@ int logicalShift(int x, int n) {
  *   Rating: 1
  */
 int tmin(void) {
+  /*This uses the fact that tmin = 0x80000000, which is obtained by shifting 1
+    to the left 31 times.
+   */
   return 1<<31;
 }

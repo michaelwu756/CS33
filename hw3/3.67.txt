@@ -1,0 +1,77 @@
+a)
+z-> 24(%rax)
+rax=&z
+s.a[0]=x at (%rsp)
+s.a[1]=y at 8(%rsp)
+s.p=&z at 16(%rsp)
+
+Before calling process the stack for eval looks like this
+
+higher addresses
+
+72 bytes of garbage
+8 bytes that hold z
+8 bytes that hold s.p=&z
+8 bytes that hold s.a[1]=y
+8 bytes that hold s.a[0]=x
+Stack pointer holds address of x
+
+lower addresses
+
+b)
+eval passes the address of 64(%rsp) to process through %rdi, which is a
+pointer to a location 64 bytes below the top of the stack. It also puts the
+structure s on the top of the stack, which allows process to access it.
+
+c)
+When call instruction is executed the stack pointer decrements 8 in order to hold
+return address
+
+%rdi -> %rax
+&z-> %rdx
+z -> %rdx
+s.a[1]=y -> %rcx
+(%rdi) holds y
+s.a[0]=x -> %rcx
+8(%rdi) holds x
+16(%rdi) holds z
+
+The code for process accesses the elements of structure s by using the %rsp
+register. The stack pointer %rsp gets decremented by 8 to hold the return
+address when process is called, so 8(%rsp) is the first element of s, which is
+the same as s.a[0]. 16(%rsp) is the second element of s, which is the same as
+s.a[1]. 24(%rsp) is s.p.
+
+d)
+The code for process sets the fields of the result structure r by using %rdi
+as a pointer to the beginning of r. By adding the appropriate offsets and
+dereferencing, the code can set the fields of r. (%rdi) is r.u[0]. 8(%rdi) is
+r.u[1]. 16(%rdi) is r.q.
+
+e)
+The stack frame for eval following the return from the call process instruction
+looks like this
+
+higher addresses
+
+16 bytes of garbage
+8 bytes that hold r.q=z
+8 bytes that hold r.u[1]=x
+8 bytes that hold r.u[0]=y
+32 bytes of garbage
+8 bytes that hold z
+8 bytes that hold s.p=&z
+8 bytes that hold s.a[1]=y
+8 bytes that hold s.a[0]=x
+Stack pointer holds address of x
+
+lower addresses
+
+f)
+Structure values are passed as function arguments by putting them on the top of
+the stack in a predefined way. Then the called function accesses them directly
+with the stack pointer. Structure values are returned by the caller function
+allocating space for the return value and passing the address of that space to
+the called function. Then to return, the called function directly places the
+values in the return structure in the appropriate place in the stack for the
+caller function.

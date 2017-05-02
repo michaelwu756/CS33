@@ -1,0 +1,14 @@
+a)
+e1.p offset 0
+e1.y offset 8
+e2.x offset 0
+e2.next offset 8
+
+b)
+The structure requires 16 bytes.
+
+c)
+void proc (union ele *up){
+  up->e2.x = *(up->e2.next->e1.p) - up->e2.next->e1.y;
+}
+

@@ -1,0 +1,31 @@
+Compiling with only -O2 results in the function always returning false. This is
+because overflow is undefined behaviour in C. So we can assume both the left
+expression and the right expression in n + 9223372036854775807 < n does not
+overflow, and because the left side mathematically should be greater than n, the
+boolean expression always evaluates to false.
+
+Compiling with -O2 -fwrapv results in the function causes the code to include
+the statements
+
+movabsq $9223372036854775807, %rax
+addq    %rdi, %rax
+cmpq    %rax, %rdi
+setg    %al
+ret
+
+so the function actually evaluates n + 9223372036854775807 < n. This must happen
+because overflow is defined with -fwrapv. When an integer overflows it must wrap
+around as defined by a two's complement representation. Because the left side of
+the expression includes addition, the left side can overflow. So the compiler
+does not know whether or not the left side is less than or greater than n,
+because if it overflows it can wrap around and become less than n. Thus actual
+evaluation must occur.
+
+Compiling with -fsanitize=undefined results in a lot more code compared to the
+other two compilation options. There are multiple labels and jump statements in
+the code. This is because the flag causes the code to issue a warning whenever
+undefined behaviour occurs. So the resulting assembly instructions must also
+evaluate the expression n + 9223372036854775807 < n to check if the left side
+overflows, in order to issue a warning in that case. The code also pushes rbx
+and rbp onto the stack and off the stack since it may need to call another
+function if there is overflow.

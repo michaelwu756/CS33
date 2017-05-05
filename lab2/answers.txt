@@ -17,7 +17,6 @@ inserts leading zeroes and results in the hex value 1fffffffdceaced0, which is
 the decimal value 2305843008625102544. This is what gets output, and is the
 wrong mathematical answer. Effectively, this is an overflow error.
 
-
 2. The emacs -Q -batch -eval '(print most-negative-fixnum)' prints the most
 negative integer that can be returned correctly using emacs lisp. Because of the
 marker mentioned above, there are only 62 bits lisp can use to hold a signed
@@ -41,4 +40,14 @@ already implements wrapping when overflow occurs. There are no optimizations
 that would cause undefined behaviour in regards to wrapping. The imul assembly
 command already wraps, so doing -fwrapv would not change anything.
 
-5.
+5. The error is a segmentation fault when doing strcpy. It appears that the code
+copies one string into another string in order to create a time zone format
+string. This is successful the first time, but on the second time around the
+time zone format string start points to already allocated memory from
+the previous function call. On the second iteration the source string and
+destination string point to the same block of memory and share one terminating
+character. The destination string is slightly ahead of the source. Thus when
+copying, strcpy writes over the terminating character and keeps writing
+infinitely. This quickly uses up all the available memory and causes a
+segmentation fault. The function that calls strcpy is emacs_setenv_TZ in
+editfns.c.

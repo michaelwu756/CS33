@@ -45,7 +45,7 @@
 547998	48 0f af fd	imul %rbp,%rdi	rdi=4a85d2d0
 54799c	0f 90 c0	seto %al	al=0
 54799f	48 89 fd	mov %rdi,%rbp	rbp=4a85d2d0
-5479a2	41 09 c7 or	%eax,%r15d	r15d=0
+5479a2	41 09 c7 	or %eax,%r15d	r15d=0
 5479a5	e9 16 ff ff ff	jmpq 0x5478c0	rip=5478c0
 5478c0	48 83 c3 01	add $0x1,%rbx	rbx=1
 5478c4	49 39 dc	cmp %rbx,%r12

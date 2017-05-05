@@ -1,0 +1,25 @@
+1. The instructions in the trace did not produce the correct mathematical
+result, even though the correct result should have been able to fit in a 64 bit
+signed integer, because there is an optimization to store the value 2 in the
+last 2 bits of the return value of Ftimes. In the trace we have the line
+
+547920  48 8d 04 ad 02 00 00 00 lea 0x2(,%rbp,4),%rax   rax=7fffffff73ab3b42
+
+where we have that rbp=dfffffffdceaced0, which is the correct signed hex value
+that results from the multiplication of 1250284240 and -1844255039. The code
+assigns rax to be 4*rbp + 2, which is the same as shifting rbp to the left by 2
+and changing the last two bits to be 10. This causes the highest two bits of the
+correct mathematical result to be thrown away, and rax's leading bit becomes a
+zero. At some point later in the code, the return value of Ftimes
+7fffffff73ab3b42, is shifted back to the right by 2. Using an arithmetic shift
+inserts leading zeroes and results in the hex value 1fffffffdceaced0, which is
+the decimal value 2305843008625102544. This is what gets output, and is the
+wrong mathematical answer.
+
+
+2. The emacs -Q -batch -eval '(print most-negative-fixnum)' prints the most
+negative integer that can be returned correctly using emacs lisp. Because of the
+optimization mentioned above, there are only 62 bits lisp can use to hold a
+signed integer on a 64 bit machine. Thus in two's complement representation
+there will be one sign bit and the most negative number will be -(2^61) which is
+the same as -2305843009213693952.

@@ -1,3 +1,10 @@
+Initially I was very confused on how to do this lab and I tried to google about
+tracepoints to see if they could be used to make the generation of the trace
+easier. After spending a couple hours I had no luck with this. Looking on
+Piazza, my classmate's posts indicated that I had to go through each machine
+instruction in Ftimes by hand in gdb. Annoying, but alas it could be done. I
+sighed and got to work.
+
 First I opened up gdb with the correct emacs executable loaded using
 
 gdb ~eggert/bin64/bin/emacs-25.2
@@ -38,9 +45,10 @@ doing
 info registers rdx
 
 and saw that it was the value that was previously in rsi. I also saw that the
-next instruction was another move instuction. I looked at the registers in the
+next instruction was another move instruction. I looked at the registers in the
 same manner to determine what would happen as a result of the command. I
-continued in this fashion for the remaining instructions until the next retq. I
+continued in this fashion for the remaining instructions until the next
+retq. After retq I knew that Ftimes returned and I could stop my trace. I
 investigated memory locations using the gdb x command. For example, to examine
 (%r14,%rbx,8) I did
 
@@ -48,9 +56,16 @@ x/g $r14+8*$rbx
 
 The /g flag indicates to read 64 bits from memory at the address given by the
 expression $r14+8*$rbx, where $r14 and $rbx are the values stored in the
-registers r14 and rbx, respectively. This all got output into trace.tr, which I
-formatted by hand using emacs. To ensure that the tab key inserted a tab
-character, I did
+registers r14 and rbx, respectively. I forgot to include /g when
+fffffffe484b9b06 was moved from memory to the register rdi, which confused me because
+I thought 484b9b06 was moved from memory to rdi. The default number of bits to
+read from memory was 32, which is why the /g flag is necessary.
+
+My step through of Ftimes and my investigation of register values all got output
+into trace.tr, which I formatted by hand using emacs to fit the spec's
+formatting guidelines. I deleted extra characters that gdb output which were
+unnecessary, and made the fourth column by hand. Then I spaced everything out
+correctly. To ensure that the tab key inserted a tab character, I did
 
 M-x local-set-key<RET> <TAB> self-insert-command
 
@@ -62,4 +77,8 @@ and typed
 
 (setq default-tab-width 32)
 
-and evaluated it with C-j.
+and evaluated it with C-j. Then I removed all trailing whitespace using
+
+M-x delete-trailing-whitespace
+
+and this resulted in my final trace.tr.

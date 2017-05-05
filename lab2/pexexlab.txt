@@ -1,0 +1,65 @@
+First I opened up gdb with the correct emacs executable loaded using
+
+gdb ~eggert/bin64/bin/emacs-25.2
+
+Then in gdb I did the following to enable logging to trace.tr
+
+set logging file trace.tr
+set logging on
+
+I set a breakpoint at Ftimes using
+
+break Ftimes
+
+I set the machine code instruction to be displayed using
+
+set disassemble-next-line on
+
+and I ran emacs with the given arguments using
+
+run -Q -batch -eval '(print (* 1250284240 -1844255039))'
+
+gdb stopped execution at the breakpoint. It showed the next disassembled line to
+be executed which consisted of
+
+mov %rsi, %rdx
+
+I used the gdb command
+
+info registers rsi
+
+to see which value was being moved into rdx. Then I did
+
+si
+
+to step to the next instruction. I verified that rdx was updated correctly by
+doing
+
+info registers rdx
+
+and saw that it was the value that was previously in rsi. I also saw that the
+next instruction was another move instuction. I looked at the registers in the
+same manner to determine what would happen as a result of the command. I
+continued in this fashion for the remaining instructions until the next retq. I
+investigated memory locations using the gdb x command. For example, to examine
+(%r14,%rbx,8) I did
+
+x/g $r14+8*$rbx
+
+The /g flag indicates to read 64 bits from memory at the address given by the
+expression $r14+8*$rbx, where $r14 and $rbx are the values stored in the
+registers r14 and rbx, respectively. This all got output into trace.tr, which I
+formatted by hand using emacs. To ensure that the tab key inserted a tab
+character, I did
+
+M-x local-set-key<RET> <TAB> self-insert-command
+
+I found that it was hard to see the tabs so I opened the scratch buffer with
+
+C-x b <RET> *scratch*
+
+and typed
+
+(setq default-tab-width 32)
+
+and evaluated it with C-j.

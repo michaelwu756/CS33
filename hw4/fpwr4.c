@@ -20,13 +20,13 @@ float fpwr4(int x)
     exp = 2*x+127;
     frac = 0;
   } else {
-    /* Too big. Return +oo*/
+    /* Too big. Return +oo */
     exp = 255;
     frac = 0;
   }
 
   /* Pack exp and frac int 32 bits */
   u = exp << 23 | frac;
-  /* Return as float*/
+  /* Return as float */
   return u2f(u);
 }

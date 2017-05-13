@@ -1,0 +1,38 @@
+A) (float) x == (float) dx
+
+This always yields 1 because converting from int to double preserves the exact
+numerical value. Then converting the int to a float cannot overflow, but can be
+rounded. This also means converting the double to a float in this case cannot
+overflow because the value of the double has the same value as the int. The
+conversion between double and float also rounds the same way as the conversion
+from int to float. So both the left and right sides will be equal.
+
+B) dx-dy == (double)(x-y)
+
+This does not always yield 1. An overflow can occur on the right side because
+the subtraction uses integer arithmetic, while the left side has a greater
+range so an overflow would not work. An example of this is if x=0x7FFFFFFF,
+y=0xFFFFFFFF. Then dx-dy = 2^31, but (double)(x-y) =-2^31.
+
+C) (dx+dy)+dz==dx+(dy+dz)
+
+This does always yield 1. Converting from int to double preseves the exact
+numerical value, and double can represent every integer from -2^53 to 2^53,
+greater than the int's range from -2^31 to 2^31-1. So there is no possibility of
+loss of precision or overflow for different groupings of addition and the right
+and left sides will be equal.
+
+D) (dx*dy)*dz==dx*(dy*dz)
+
+This does not always yield 1. Multiplication can cause differences in rounding
+depending on the order it is performed in. For integers this loss of precision
+begins to occur at very high values, so one case where this will occur is if
+x is 2^30-1, y is 2^23+1, z is 2^30+1. In hex this is x=0x3FFFFFFF,
+y=0x00800001, z=0x40000001. Then the left side outputs
+9671407709838538004496384, whereas the right side outputs
+9671407709838538004496386.
+
+E) dx/dx == dz/dz
+
+This does not always yield 1. If x=0, z=1 then the left side will be a NaN and
+the right side will be 1.

@@ -1,0 +1,421 @@
+First I ran
+
+which gcc
+
+to verify that I was using the gcc at
+
+/usr/local/cs/bin/gcc
+
+Then I downloaded sthttpd 2.27.0 by doing
+
+wget http://web.cs.ucla.edu/classes/spring17/cs33/lab/sthttpd-2.27.0.tar.gz
+
+This made a file sthttpd-2.27.0.tar.gz in my current directory.
+
+Then I made the patch file with
+
+touch patch.diff
+
+and opened it in emacs and pasted the following
+
+--- sthttpd-2.27.0/src/thttpd.c	2014-10-02 15:02:36.000000000 -0700
++++ sthttpd-2.27.0-delta/src/thttpd.c	2015-04-30 19:15:24.820042000 -0700
+@@ -999,7 +999,7 @@ static void
+ read_config( char* filename )
+     {
+     FILE* fp;
+-    char line[10000];
++    char line[100];
+     char* cp;
+     char* cp2;
+     char* name;
+@@ -1012,7 +1012,7 @@ read_config( char* filename )
+ 	exit( 1 );
+ 	}
+
+-    while ( fgets( line, sizeof(line), fp ) != (char*) 0 )
++    while ( fgets( line, 1000, fp ) != (char*) 0 )
+ 	{
+ 	/* Trim comments. */
+ 	if ( ( cp = strchr( line, '#' ) ) != (char*) 0 )
+
+Then I extracted the tar file with
+
+tar -xzf sthttpd-2.27.0.tar.gz
+
+which made a directory sthttpd-2.27.0. I applied the patch with
+
+patch -p0 <patch.diff
+
+which gave the result
+
+patching file sthttpd-2.27.0/src/thttpd.c
+patch unexpectedly ends in middle of line
+Hunk #2 succeeded at 1012 with fuzz 1.
+
+Checking sthttpd-2.27.0/src/thttpd.c with emacs, I saw that the necessary
+changes were made at the appropriate lines. I wondered where the error message
+from the patch was from, and it seemed that I forgot to put a return at the end
+of my patch.diff. I added a return with emacs, reversed the patch and reapplied
+it with
+
+patch -p0 -R <patch.diff
+patch -p0 <patch.diff
+
+and it worked with no messages other than
+
+patching file sthttpd-2.27.0/src/thttpd.c
+
+then moving into sthttpd-2.27.0 with cd sthttpd-2.27.0, I ran
+
+./configure \
+   LDFLAGS="-Xlinker --rpath=/usr/local/cs/gcc-$(gcc -dumpversion)/lib"
+
+This generated a makefile for the program. Then I did
+
+make clean
+make CFLAGS='-g3 -O2 -fno-inline -fstack-protector-strong'
+
+which generated src/thttpd. I did
+
+mv src/thttpd src/thttpd-sp
+
+to save the generated file. Then I did
+
+make clean
+make CFLAGS='-g3 -O2 -fno-inline -fsanitize=address'
+
+which generated src/thttpd. I did
+
+mv src/thttpd src/thttpd-as
+
+to save the generated file. Then I did
+
+make clean
+make CFLAGS='-g3 -O2 -fno-inline -fno-stack-protector -zexecstack'
+
+which generated src/thttpd. I did
+
+mv src/thttpd src/thttpd-no
+
+to save the generated file.
+
+Then I calculated the port numbers with python by doing
+
+python
+
+and then in the python interpreter I ran
+
+>>> print (12330 + 3 * (404751542 % 293) + 1)
+12841
+>>> print (12330 + 3 * (404751542 % 293) + 2)
+12842
+>>> print (12330 + 3 * (404751542 % 293) + 3)
+12843
+
+to give me the port numbers I needed.
+
+I did
+
+echo "test file">foo.txt
+
+to make a test file to test the servers.
+
+I opened up another terminal session and moved to the sthttpd-2.27.0
+directory. Then I ran
+
+gdb src/thttpd-sp
+
+to open the program in gdb and I ran it with
+
+run -p 12841 -D
+
+inside gdb. This opened up a server on the port 12841.  I verified that it
+worked normally by doing
+
+curl http://localhost:12841/foo.txt
+
+which output
+
+test file
+
+At some point someone started using my port 12841 so I used the port 12840
+instead. I repeated this with the other variants of thttpd, thttpd-no worked but
+thttpd-as gave the error
+
+error while loading shared libraries: libasan.so.3: wrong ELF class: ELFCLASS32
+
+I recompiled using the -static-libasan flag to get the correct libasan library with
+
+make clean
+make CFLAGS='-g3 -O2 -fno-inline -fsanitize=address -static-libasan'
+mv src/thttpd src/thttpd-as
+
+After recompiling I tested on port 12842 and found that the program worked but when I did
+
+curl http://localhost:12842/foo.txt
+
+I got the file output correctly but gdb output an error and crashed the server.
+The error was
+
+==6340==ERROR: AddressSanitizer: strcpy-param-overlap: memory ranges [0x08088360,0x0808836a) and [0x08088367, 0x08088371) overlap
+    #0 0xf7ad4ca5 in __interceptor_strcpy ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:543
+    #1 0x805b6bc in httpd_ntoa /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/libhttpd.c:4081
+    #2 0x805f068 in make_log_entry /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/libhttpd.c:3952
+    #3 0x805f239 in httpd_close_conn /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/libhttpd.c:2449
+    #4 0x80512da in really_clear_connection /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:2052
+    #5 0x804d2cc in main /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:806
+    #6 0xf784a9a2 in __libc_start_main (/lib/libc.so.6+0x199a2)
+    #7 0x804dd20  (/w/home.12/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd-as+0x804dd20)
+
+0x08088360 is located 0 bytes inside of global variable 'str' defined in 'libhttpd.c:4072:17' (0x8088360) of size 200
+0x08088367 is located 7 bytes inside of global variable 'str' defined in 'libhttpd.c:4072:17' (0x8088360) of size 200
+SUMMARY: AddressSanitizer: strcpy-param-overlap ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:543 in __interceptor_strcpy
+==6340==ABORTING
+
+This appears to be normal behaviour for thttpd-as and it cannot be fixed to work normally.
+
+The ports and servers were as follows
+
+port	    server variant
+12840	    thttpd-sp
+12842	    thttpd-as
+12843	    thttpd-no
+
+Next I had to crash my programs upon calling them. Even though thttpd-as
+crashed, it only crashed when I ran curl on it, so I will try to crash it in
+another way. But first I begin with thttpd-sp. Reading the source code for the
+patch indicated that the bug introduced had to do with the fgets function
+writing into unallocated space when thttpd reads a config file. So I made a
+config file with
+
+touch config.txt
+
+and wrote a line with 104 characters into it, like this
+
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+and then in gdb I ran thttpd-sp with
+
+run -p 12840 -D -C config.txt
+
+This sucessfully crashed the program. This happened because the program
+overwrote a canary value which indicated to the program that the stack was
+written to improperly. I had to choose a string that was sufficiently long so
+that this would occur, it had to be greater than 100 because that was the
+allocated memory for the lines variable. The backtrace from gdb after the crash
+was
+
+#0  0x00007ffff76121d7 in raise () from /lib64/libc.so.6
+#1  0x00007ffff76138c8 in abort () from /lib64/libc.so.6
+#2  0x00007ffff7651f07 in __libc_message () from /lib64/libc.so.6
+#3  0x00007ffff76ec047 in __fortify_fail () from /lib64/libc.so.6
+#4  0x00007ffff76ec010 in __stack_chk_fail () from /lib64/libc.so.6
+#5  0x0000000000405056 in read_config (filename=<optimized out>) at thttpd.c:1190
+#6  0x000000000040537f in parse_args (argc=6, argv=0x7fffffffe2d8) at thttpd.c:893
+#7  0x0000000000403876 in main (argc=<optimized out>, argv=<optimized out>) at thttpd.c:380
+
+Now I needed to figure out what machine instruction caused this crash. I set a
+breakpoint at thttpd.c:1190 and ran thttpd-sp again with the same arguments. I
+set gdb to disassemble and stepped through the machine code instructions until i
+got to this section
+
+ 0x0000000000404f23 <read_config+1219>:       48 8b 44 24 68  mov    0x68(%rsp),%rax
+ 0x0000000000404f28 <read_config+1224>:       64 48 33 04 25 28 00 00 00      xor    %fs:0x28,%rax
+ 0x0000000000404f31 <read_config+1233>:       0f 85 1a 01 00 00       jne    0x405051 <read_config+1521>
+ 0x0000000000405051 <read_config+1521>:       e8 5a d4 ff ff  callq  0x4024b0 <__stack_chk_fail@plt>
+
+These instructions caused the crash. If I had to identify a single instruction
+that caused it, it would be
+
+callq  0x4024b0
+
+This calls a function that signals that the check for the stack canary failed
+and crashes the program. The canary is located at 0x68(%rsp), and does not match
+it's correct value at %fs:0x28 because it was overwritten.
+
+For thttpd-as, I ran it under gdb using the same config file as thttpd-sp to
+crash it in the same way. So I did
+
+gdb src/thttpd-as
+
+and then
+
+run -p 12842 -D -C config.txt
+
+I got an error message that was as follows
+
+==14651==ERROR: AddressSanitizer: stack-buffer-overflow on address 0xffffc034 at pc 0xf7a955ae bp 0xffffbf88 sp 0xffffbb60
+READ of size 106 at 0xffffc034 thread T0
+    #0 0xf7a955ad in __interceptor_strchr ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:468
+    #1 0x804eb76 in read_config /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1018
+    #2 0x804f6fe in parse_args /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:893
+    #3 0x804c9e2 in main /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:380
+    #4 0xf784a9a2 in __libc_start_main (/lib/libc.so.6+0x199a2)
+    #5 0x804dd20  (/w/home.12/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd-as+0x804dd20)
+
+Address 0xffffc034 is located in stack of thread T0 at offset 132 in frame
+    #0 0x804eacf in read_config /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1000
+
+  This frame has 1 object(s):
+    [32, 132) 'line' <== Memory access at offset 132 overflows this variable
+HINT: this may be a false positive if your program uses some custom stack unwind mechanism or swapcontext
+      (longjmp and C++ exceptions *are* supported)
+SUMMARY: AddressSanitizer: stack-buffer-overflow ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:468 in __interceptor_strchr
+Shadow bytes around the buggy address:
+  0x3ffff7b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x3ffff7c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x3ffff7d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x3ffff7e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x3ffff7f0: 00 00 00 00 00 00 f1 f1 f1 f1 00 00 00 00 00 00
+=>0x3ffff800: 00 00 00 00 00 00[04]f4 f4 f4 f3 f3 f3 f3 00 00
+  0x3ffff810: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 f1 f1
+  0x3ffff820: f1 f1 04 f4 f4 f4 f2 f2 f2 f2 04 f4 f4 f4 f2 f2
+  0x3ffff830: f2 f2 00 f4 f4 f4 f2 f2 f2 f2 00 00 00 00 00 00
+  0x3ffff840: 00 00 00 00 00 00 00 00 00 00 f2 f2 f2 f2 00 00
+  0x3ffff850: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 f2 f2
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07
+  Heap left redzone:       fa
+  Heap right redzone:      fb
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack partial redzone:   f4
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==14651==ABORTING
+
+The back trace ouptut was
+
+    #0 0xf7a955ad in __interceptor_strchr ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:468
+    #1 0x804eb76 in read_config /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1018
+    #2 0x804f6fe in parse_args /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:893
+    #3 0x804c9e2 in main /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:380
+    #4 0xf784a9a2 in __libc_start_main (/lib/libc.so.6+0x199a2)
+    #5 0x804dd20  (/w/home.12/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd-as+0x804dd20)
+
+Next I had to find the machine instruction that crashed thttpd-as. I made a
+breakpoint at thttpd.c:1018 and saw that the program crashed during the call to
+strchr on line 1018 of thttpd.c. Thus the machine instruction that caused the
+crash was
+
+0x0804eb72 <read_config+178>:        e8 39 b9 ff ff  call   0x804a4b0 <strchr@plt>
+
+because this calls a function that goes through the line array and eventually
+goes past the last address that is allocated to line. This invokes the address
+sanitizer which crashes the program to protect from out of bounds access.
+
+For thttpd-no I again invoked it using gdb in a similar fashion
+
+gdb src/thttpd-no
+
+and then did
+
+run -p 12843 -D -C config.txt
+
+This did not crash the program. I tried to change config.txt so it would
+crash. I made config.txt have a line of 159 characters as follows
+
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Then running with the config file again caused a segfault, the backtrace of
+which was
+
+#0  0x0000000000404d9f in read_config (filename=<optimized out>) at thttpd.c:1190
+#1  0x0041414141414141 in ?? ()
+#2  0x0000000000000000 in ?? ()
+
+The ASCII code for A is 0x41, so it appears that this segfault was caused by
+writing over execution code on the stack. I found that if I changed the amount
+of A's in config.txt I would get a different backtrace.
+
+To find the machine instruction that crashed the program I set a breakpoint at
+thttpd.c:1190 and ran with config.txt having 159 characters as before. The last
+instruction executed was
+
+0x0000000000404d9f <read_config+1215>:       c3      retq
+
+So this is the instruction that crashed the program. What happened was that when
+the read_config function returned, %rip was set to a value stored on the stack
+that was the location one instruction after the code that called
+read_config. But during read_config there was a buffer overflow such that that
+address on the stack was overwritten. So %rip points to some random location
+that doesn't correspond to an instruction, which causes a segfault and the
+program crashes.
+
+To summarize:
+
+1. How you make the SP crash?(5 points)
+I make a file config.txt with 104 characters, containing the string
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Then I run
+src/thttpd-sp -p 12840 -D -C config.txt
+
+2. Identify the machine instruction causing crash(5 points)
+0x0000000000405051 <read_config+1521>:       e8 5a d4 ff ff  callq  0x4024b0 <__stack_chk_fail@plt>
+
+3. Explain why.(5 points)
+The program detects that a canary value was not the correct value, so the stack
+was written to improperly. So the machine code takes a conditional branch that
+indicates the program should crash since the stack checking failed.
+
+4. How you make the AS crash?(5 points)
+I make a file config.txt with 104 characters, containing the string
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Then I run
+src/thttpd-as -p 12842 -D -C config.txt
+
+5. Identify the machine instruction causing crash(5 points)
+0x0804eb72 <read_config+178>:        e8 39 b9 ff ff  call   0x804a4b0 <strchr@plt>
+
+6. Explain why.(5 points)
+This is a function call to a C library function strchr. It traverses through the line
+array which was previously written to. This causes a memory access that is out
+of bounds, which the address sanitizer picks up on. Then this crashes the
+program to prevent this memory access.
+
+7. How you make the NO crash?(5 points)
+I make a file config.txt with 159 characters, containing the string
+user=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+Then I run
+src/thttpd-no -p 12843 -D -C config.txt
+
+8. Identify the machine instruction causing crash(5 points)
+0x0000000000404d9f <read_config+1215>:       c3      retq
+
+9. Explain why.(5 points)
+read_config writes to unallocated memory in the line array, which overwrites the
+return value on the stack for read_config. So when read_config returns, %rip is
+set to 0x0041414141414141, which is not a location that contains an
+instruction. So the program crashes.
+
+
+Next I needed to generate .s files for the SP, AS, and NO variants of the
+program. So I did
+
+make clean
+make CFLAGS='-S -O2 -fno-inline -fstack-protector-strong'
+mv src/thttpd.o src/thttpd-sp.s
+make clean
+make CFLAGS='-S -O2 -fno-inline -fsanitize=address -static-libasan'
+mv src/thttpd.o src/thttpd-as.s
+make clean
+make CFLAGS='-S -O2 -fno-inline -fno-stack-protector -zexecstack'
+mv src/thttpd.o src/thttpd-no.s
+
+which made the appropriate .s files.

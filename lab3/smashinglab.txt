@@ -418,4 +418,10 @@ make clean
 make CFLAGS='-S -O2 -fno-inline -fno-stack-protector -zexecstack'
 mv src/thttpd.o src/thttpd-no.s
 
-which made the appropriate .s files.
+which made the appropriate .s files. I looked at them using emacs to investigate
+how -fstack-protector-strong and -fsanitize=address worked.
+
+10. Describe the techniques used by -fstack-protector-strong and
+-fsanitize=address to prevent buffer-overrun exploits in handle_read (15 points)
+
+-fstack-protector-strong

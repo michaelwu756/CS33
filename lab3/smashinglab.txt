@@ -199,7 +199,7 @@ and then in gdb I ran thttpd-sp with
 
 run -p 12840 -D -C config.txt
 
-This sucessfully crashed the program. This happened because the program
+This successfully crashed the program. This happened because the program
 overwrote a canary value which indicated to the program that the stack was
 written to improperly. I had to choose a string that was sufficiently long so
 that this would occur, it had to be greater than 100 because that was the
@@ -297,7 +297,7 @@ Shadow byte legend (one shadow byte represents 8 application bytes):
   Right alloca redzone:    cb
 ==14651==ABORTING
 
-The back trace ouptut was
+The back trace output was
 
     #0 0xf7a955ad in __interceptor_strchr ../../../../../gcc-6.3.0/libsanitizer/asan/asan_interceptors.cc:468
     #1 0x804eb76 in read_config /u/cs/ugrad/wum/Documents/CS33/lab3/sthttpd-2.27.0/src/thttpd.c:1018
@@ -315,7 +315,7 @@ crash was
 
 because this calls a function that goes through the line array and eventually
 goes past the last address that is allocated to line. This invokes the address
-sanitizer which crashes the program to protect from out of bounds access.
+sanitizer which crashes the program to protect from a stack buffer overflow.
 
 For thttpd-no I again invoked it using gdb in a similar fashion
 
@@ -382,11 +382,11 @@ src/thttpd-as -p 12842 -D -C config.txt
 5. Identify the machine instruction causing crash(5 points)
 0x0804eb72 <read_config+178>:        e8 39 b9 ff ff  call   0x804a4b0 <strchr@plt>
 
-6. Explain why.(5 points)
-This is a function call to a C library function strchr. It traverses through the line
-array which was previously written to. This causes a memory access that is out
-of bounds, which the address sanitizer picks up on. Then this crashes the
-program to prevent this memory access.
+6. Explain why.(5 points) This is a function call to a C library function
+strchr. It traverses through the line array which was previously written
+to. This causes a memory access that is out of bounds, which the address
+sanitizer picks up on as a stack buffer overflow. Then this crashes the program
+to prevent this memory access.
 
 7. How you make the NO crash?(5 points)
 I make a file config.txt with 159 characters, containing the string
@@ -424,4 +424,31 @@ how -fstack-protector-strong and -fsanitize=address worked.
 10. Describe the techniques used by -fstack-protector-strong and
 -fsanitize=address to prevent buffer-overrun exploits in handle_read (15 points)
 
--fstack-protector-strong
+I saw that the handle_read function from thttpd-sp.s included no machine code to
+check for stack smashing compared to thttpd-no.s. There were no calls to
+__stack_chk_fail. This means that -fstack-protector-strong has no effect on
+handle_read. It only protects against stack smashing when arrays are present,
+and there are no arrays inside handle_read.
+
+I saw that -fsanitize=address checked for buffer overrun errors by using lines
+of code like this
+
+  cmpb    $0, 2147450880(%rax)
+  jne     .L1179
+
+So basically address sanitizer looks at some point in memory and sees if it is
+empty. The memory address is 2^31-2^15+%rax. If the memory at this location is
+not zero, the code jumps to a point that calls a function from libasan,
+signaling that an error has occurred. This crashes the program and prevents any
+exploits from being run. The memory at 2^31-2^15+%rax is zeroed out for valid
+values of %rax, and nonzero when the program has written to an invalid memory
+location. -fsanitize=address appears to protect all pointers and arrays, leading
+to many jump statements as shown above. So even if the stack is not being messed
+with, the address sanitizer may cause a crash if a pointer points to an invalid
+address.
+
+Next I needed to build an exploit to cause thttpd-no to delete target.txt when invoked with
+a given config file. I will overwrite the return address of read_config to point
+to a location on the stack where the line array was. Because the line array has
+the contents of the config file, I will load bytecode in the config file and
+then the program will execute it.

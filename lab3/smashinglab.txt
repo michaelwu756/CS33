@@ -526,3 +526,6 @@ src/thttpd-no -p 12843 -D -C exploit.txt
 does not remove target.txt, because address space layout randomization is turned
 on. gdb turns it off which allows the exploit to have the same stack pointer
 every time, which makes the exploit work.
+
+UPDATE: after recompiling thttpd-as with the updates given on piazza it works
+normally in the normal case. The remainder of the lab remains the same.

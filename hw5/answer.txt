@@ -1,0 +1,14 @@
+12.18
+
+A)Unsafe
+B)Safe
+C)Unsafe
+
+12.24
+
+The RIO I/O functions are implicitly reentrant because they do not access any
+shared variables. However, they can be passed pointers and file descriptors. If
+the pointer points at the same location across multiple threads or multiple
+threads call read or write on the same file descriptor then unpredictable
+behaviour can result. So the caller function must ensure that it passes the
+correct arguments into the RIO I/O functions in order for it to behave reentrantly.

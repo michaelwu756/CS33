@@ -1,6 +1,5 @@
 #include "func.h"
 #include "util.h"
-#include <omp.h>
 
 void func0(double *weights, double *arrayX, double *arrayY, int xr, int yr, int n)
 {
@@ -19,32 +18,29 @@ void func1(int *seed, int *array, double *arrayX, double *arrayY,
 	int i, j;
    	int index_X, index_Y;
 	int max_size = X*Y*Z;
-	omp_set_num_threads(8);
-#pragma omp parallel for default(shared) private (i) schedule(auto)
-	for(i = 0; i < n; i++)
-	{
-	  arrayX[i] += 1 + 5*rand2(seed, i);
-	  arrayY[i] += -2 + 2*rand2(seed, i);
-	}
+#pragma omp parallel for default(shared) private(i)
+   	for(i = 0; i < n; i++){
+   		arrayX[i] += 1 + 5*rand2(seed, i);
+   		arrayY[i] += -2 + 2*rand2(seed, i);
+   	}
 
-#pragma omp parallel for default(shared) private(i,j) schedule(auto)
-	for(i = 0; i<n; i++){
-	  for(j = 0; j < Ones; j++){
-	    index_X = round(arrayX[i]) + objxy[j*2 + 1];
-	    index_Y = round(arrayY[i]) + objxy[j*2];
-	    index[i*Ones + j] = fabs(index_X*Y*Z + index_Y*Z + iter);
-	    if(index[i*Ones + j] >= max_size)
-	      index[i*Ones + j] = 0;
-	  }
-	  
-	  double result=0;
-	  for(j = 0; j < Ones; j++) {
-	    result += (pow((array[index[i*Ones + j]] - 100),2) -
-			       pow((array[index[i*Ones + j]]-228),2))/50.0;
-	  }
-	  probability[i] = result/((double) Ones);
-	}
-	
+#pragma omp parallel for default(shared) private(i,j,index_X,index_Y)
+   	for(i = 0; i<n; i++){
+   		for(j = 0; j < Ones; j++){
+   			index_X = round(arrayX[i]) + objxy[j*2 + 1];
+   			index_Y = round(arrayY[i]) + objxy[j*2];
+   			index[i*Ones + j] = fabs(index_X*Y*Z + index_Y*Z + iter);
+   			if(index[i*Ones + j] >= max_size)
+   				index[i*Ones + j] = 0;
+   		}
+   		probability[i] = 0;
+
+   		for(j = 0; j < Ones; j++) {
+   			probability[i] += (pow((array[index[i*Ones + j]] - 100),2) -
+   							  pow((array[index[i*Ones + j]]-228),2))/50.0;
+   		}
+   		probability[i] = probability[i]/((double) Ones);
+   	}
 }
 
 void func2(double *weights, double *probability, int n)

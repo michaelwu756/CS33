@@ -4,16 +4,21 @@ make seq
 
 and running ./seq output
 
+FUNC TIME : 0.504830
+TOTAL TIME : 2.353649
 
+Thus 0.504830 is my baseline runtime that I will use to test the speedup. Then
+to profile it I compiled it with
 
 make seq GPROF=1
 
-and when i ran it with ./seq it output
+and when I ran it with ./seq it output
 
 FUNC TIME : 0.590301
 TOTAL TIME : 2.590365
 
-I then looked at the profiling results by doing
+So profiling adds significant overhead. I then looked at the profiling results
+by doing
 
 gprof seq
 
@@ -66,7 +71,7 @@ for(i = 0; i < n; i++)
 with
 
         omp_set_num_threads(8);
-#pragma omp parallel default(shared) private (i) for schedule(dynamic)
+#pragma omp parallel for default(shared) private (i) schedule(auto)
         for(i = 0; i < n; i++)
         {
           arrayX[i] += 1 + 5*rand2(seed, i);
@@ -78,3 +83,55 @@ which ran the for loop in 8 different threads. I added similar directives to the
 following nested for loops in func1 to make it run in 8 different threads as
 well. I also removed the loop access to probability[i] for the summation to cut
 down on memory accesses.
+
+I compiled the openmp program again with
+
+make omp
+
+and ./omp resulted in the output
+
+FUNC TIME : 0.277794
+TOTAL TIME : 2.193094
+
+Then I needed to profile the program again to see what else I could optimize. I
+did
+
+make omp GPROF=1
+./omp
+gprof omp
+
+and I got
+
+  %   cumulative   self              self     total
+ time   seconds   seconds    calls  ms/call  ms/call  name
+ 85.62      1.18     1.18                             filter
+  8.71      1.30     0.12  4280185     0.00     0.00  rand2
+  2.18      1.33     0.03        1    30.04   147.78  addSeed
+  1.45      1.35     0.02        1    20.03    20.03  imdilateDisk
+  0.73      1.36     0.01   621963     0.00     0.00  round
+  0.73      1.37     0.01       15     0.67     0.67  func5
+  0.73      1.38     0.01                             sequence
+  0.00      1.38     0.00   491520     0.00     0.00  findIndexBin
+  0.00      1.38     0.00       16     0.00     0.00  dilateMatrix
+  0.00      1.38     0.00       15     0.00     0.00  func1
+  0.00      1.38     0.00       15     0.00     0.00  func2
+  0.00      1.38     0.00       15     0.00     0.00  func3
+  0.00      1.38     0.00       15     0.00     0.00  func4
+  0.00      1.38     0.00       15     0.00     0.00  rand1
+  0.00      1.38     0.00        2     0.00     0.00  get_time
+  0.00      1.38     0.00        1     0.00     0.00  elapsed_time
+  0.00      1.38     0.00        1     0.00     0.00  fillMatrix
+  0.00      1.38     0.00        1     0.00     0.00  func0
+  0.00      1.38     0.00        1     0.00     0.00  getNeighbors
+
+So the majority of time is taken up by filter, which we cannot change. However
+we can begin to apply trivial optimizations to the for loops in the other
+functions as we did with func1. Doing this for all for loops and making them
+parallel resulted in the following output of ./omp
+
+FUNC TIME : 0.238024
+TOTAL TIME : 2.126006
+
+So there was marginal improvement. I also played around with making the number
+of threads a variable and setting it to 4 or 8 or 10 or 16. I found that 8 was a
+good number and there weren't any significant performance increases after that.

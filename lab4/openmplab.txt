@@ -1,0 +1,80 @@
+First I tested the performance of the program normally. I compiled it with
+
+make seq
+
+and running ./seq output
+
+
+
+make seq GPROF=1
+
+and when i ran it with ./seq it output
+
+FUNC TIME : 0.590301
+TOTAL TIME : 2.590365
+
+I then looked at the profiling results by doing
+
+gprof seq
+
+and saw the following
+
+  %   cumulative   self              self     total
+ time   seconds   seconds    calls  ms/call  ms/call  name
+ 65.61      0.38     0.38       15    25.37    27.02  func1
+ 22.44      0.51     0.13  5177344     0.00     0.00  rand2
+  3.45      0.53     0.02        1    20.03   125.49  addSeed
+  3.45      0.55     0.02                             sequence
+  1.73      0.56     0.01   491520     0.00     0.00  findIndexBin
+  1.73      0.57     0.01       15     0.67     1.34  func5
+  1.73      0.58     0.01        1    10.01    10.01  imdilateDisk
+  0.00      0.58     0.00   983042     0.00     0.00  round
+  0.00      0.58     0.00       16     0.00     0.00  dilateMatrix
+  0.00      0.58     0.00       15     0.00     0.00  func2
+  0.00      0.58     0.00       15     0.00     0.00  func3
+  0.00      0.58     0.00       15     0.00     0.00  func4
+  0.00      0.58     0.00       15     0.00     0.00  rand1
+  0.00      0.58     0.00        2     0.00     0.00  get_time
+  0.00      0.58     0.00        1     0.00     0.00  elapsed_time
+  0.00      0.58     0.00        1     0.00     0.00  fillMatrix
+  0.00      0.58     0.00        1     0.00     0.00  func0
+  0.00      0.58     0.00        1     0.00     0.00  getNeighbors
+
+So func1 is taking up the majority of the run time, and rand2 comes in
+second. Looking inside func.c at func1 shows that func1 calls rand2.
+
+I did make clean and noticed that gmon.out never got deleted, so I changed the
+last line of the makefile to
+
+        rm -f seq omp filter output.txt mtrace.out gmon.out
+
+So I began looking at omp and seeing how to optimize func1. I saw that there was
+a for loop that initialized arrayX and arrayY in func1. This could be made
+parallel with open mp. Looking at the documentation I determined that I should
+add
+
+#include <omp.h>
+
+to the top of func.c, and I replaced
+
+for(i = 0; i < n; i++)
+{
+  arrayX[i] += 1 + 5*rand2(seed, i);
+  arrayY[i] += -2 + 2*rand2(seed, i);
+}
+
+with
+
+        omp_set_num_threads(8);
+#pragma omp parallel default(shared) private (i) for schedule(dynamic)
+        for(i = 0; i < n; i++)
+        {
+          arrayX[i] += 1 + 5*rand2(seed, i);
+          arrayY[i] += -2 + 2*rand2(seed, i);
+        }
+
+
+which ran the for loop in 8 different threads. I added similar directives to the
+following nested for loops in func1 to make it run in 8 different threads as
+well. I also removed the loop access to probability[i] for the summation to cut
+down on memory accesses.

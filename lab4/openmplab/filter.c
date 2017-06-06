@@ -2,7 +2,7 @@
 #include "func.h"
 
 void filter(int *array, int X, int Y, int Z, int * seed, int N, FILE *ofp){
-	long long func_start = get_time();
+
 	double xr = round(Y/2.0);
 	double yr = round(X/2.0);
 
@@ -36,11 +36,11 @@ void filter(int *array, int X, int Y, int Z, int * seed, int N, FILE *ofp){
 	double * u = (double *)malloc(sizeof(double)*N);
 	int * index = (int*)malloc(sizeof(int)*Ones*N);
 
+		long long func_start = get_time();
 	int i, j;
 	for(i = 1; i < Z; i++) {
-	  long long funcinner_start = get_time();
 		func1(seed, array, arrayX, arrayY, probability, objxy, index, Ones, i, X, Y, Z, N);
-		long long funcinner_end = get_time();
+
 		func2(weights, probability, N);
 
 		double x_e = 0;
@@ -59,8 +59,6 @@ void filter(int *array, int X, int Y, int Z, int * seed, int N, FILE *ofp){
 		func4(u, u1, N);
 
 		func5(x_j, y_j, arrayX, arrayY, weights, cfd, u, N);
-
-		printf("FUNC INNER : %f\n", elapsed_time(funcinner_start, funcinner_end));
 	}
 
 	long long func_end = get_time();

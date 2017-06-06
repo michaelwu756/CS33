@@ -32,4 +32,4 @@ check: correct.txt output.txt
 checkmem:
 	mtrace $(PROG) mtrace.out || true
 clean:
-	rm -f seq omp filter output.txt mtrace.out gprof.out
+	rm -f seq omp filter output.txt mtrace.out gmon.out

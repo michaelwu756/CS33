@@ -56,11 +56,7 @@ last line of the makefile to
 So I began looking at omp and seeing how to optimize func1. I saw that there was
 a for loop that initialized arrayX and arrayY in func1. This could be made
 parallel with open mp. Looking at the documentation I determined that I should
-add
-
-#include <omp.h>
-
-to the top of func.c, and I replaced
+make
 
 for(i = 0; i < n; i++)
 {
@@ -68,10 +64,9 @@ for(i = 0; i < n; i++)
   arrayY[i] += -2 + 2*rand2(seed, i);
 }
 
-with
+parallel with
 
-        omp_set_num_threads(8);
-#pragma omp parallel for default(shared) private (i) schedule(auto)
+#pragma omp parallel for num_threads(8) default(shared) private (i)
         for(i = 0; i < n; i++)
         {
           arrayX[i] += 1 + 5*rand2(seed, i);
@@ -79,59 +74,68 @@ with
         }
 
 
-which ran the for loop in 8 different threads. I added similar directives to the
-following nested for loops in func1 to make it run in 8 different threads as
-well. I also removed the loop access to probability[i] for the summation to cut
-down on memory accesses.
+which ran the for loop in 8 different threads. Below this there was another for
+loop which I optimized in a similar manner except I marked the variables i, j,
+index_X, and index_y private instead. I also simplified the power expression
+mathematically and cleaned up memory acesses by putting the summation into a
+local variable. I also replaced the if else block with a ternary operator and
+saved calculations by storing them in local variables. I then combined the two
+for loops because I realized that they could be done together. This reduced the
+code in func1 into the following compact segment of code
 
-I compiled the openmp program again with
+#pragma omp parallel for num_threads(8) default(shared) private(i,j,index_X,index_Y)
+        for(i = 0; i<n; i++){
+          double arx=arrayX[i]+ 1 + 5*rand2(seed,i);
+          double ary=arrayY[i]- 2 + 2*rand2(seed,i);
+          double result=0;
+          for(j = 0; j < Ones; j++){
+            index_X = round(arx) + objxy[j*2 + 1];
+            index_Y = round(ary) + objxy[j*2];
+            int res = abs((index_X*Y + index_Y)*Z + iter);
+            int loc = i*Ones+j;
+            index[loc]= (res>=max_size) ? 0 : res;
+            result+=(256*array[index[loc]]-41984)/50.0;
+          }
+          probability[i] = result/((double) Ones);
+          arrayX[i] = arx;
+          arrayY[i] = ary;
+        }
+
+Then after that I went through all the for loops in the other functions and I
+added #pragma omp parallel for statements to all of them. When a summation
+occured and I needed the result to be synchronized I used the reduction(+:var)
+option in the openmp directive. I also made sure to make the appropriate
+variables private so that each function would work properly. I played around
+with the number of threads and saw that increasing it above 8 did not change
+performance noticably. But changing it to 4 decreased performance, so I kept it
+at 8. The entirety of my changes to each function can be seen in func.c.
+
+Testing my optimized func.c with
 
 make omp
-
-and ./omp resulted in the output
-
-FUNC TIME : 0.277794
-TOTAL TIME : 2.193094
-
-Then I needed to profile the program again to see what else I could optimize. I
-did
-
-make omp GPROF=1
 ./omp
-gprof omp
 
-and I got
+resulted in
 
-  %   cumulative   self              self     total
- time   seconds   seconds    calls  ms/call  ms/call  name
- 85.62      1.18     1.18                             filter
-  8.71      1.30     0.12  4280185     0.00     0.00  rand2
-  2.18      1.33     0.03        1    30.04   147.78  addSeed
-  1.45      1.35     0.02        1    20.03    20.03  imdilateDisk
-  0.73      1.36     0.01   621963     0.00     0.00  round
-  0.73      1.37     0.01       15     0.67     0.67  func5
-  0.73      1.38     0.01                             sequence
-  0.00      1.38     0.00   491520     0.00     0.00  findIndexBin
-  0.00      1.38     0.00       16     0.00     0.00  dilateMatrix
-  0.00      1.38     0.00       15     0.00     0.00  func1
-  0.00      1.38     0.00       15     0.00     0.00  func2
-  0.00      1.38     0.00       15     0.00     0.00  func3
-  0.00      1.38     0.00       15     0.00     0.00  func4
-  0.00      1.38     0.00       15     0.00     0.00  rand1
-  0.00      1.38     0.00        2     0.00     0.00  get_time
-  0.00      1.38     0.00        1     0.00     0.00  elapsed_time
-  0.00      1.38     0.00        1     0.00     0.00  fillMatrix
-  0.00      1.38     0.00        1     0.00     0.00  func0
-  0.00      1.38     0.00        1     0.00     0.00  getNeighbors
+FUNC TIME : 0.089652
+TOTAL TIME : 2.180735
 
-So the majority of time is taken up by filter, which we cannot change. However
-we can begin to apply trivial optimizations to the for loops in the other
-functions as we did with func1. Doing this for all for loops and making them
-parallel resulted in the following output of ./omp
+So my total speedup is ~5.63x. This is satisfactory. I also tested the
+correctness of my func.c with
 
-FUNC TIME : 0.238024
-TOTAL TIME : 2.126006
+make check
 
-So there was marginal improvement. I also played around with making the number
-of threads a variable and setting it to 4 or 8 or 10 or 16. I found that 8 was a
-good number and there weren't any significant performance increases after that.
+and saw that it produced the correct output. Doing
+
+make omp MTRACE=1
+./omp
+make checkmem
+
+showed that there were some memory leaks, however. There were 11 total lines of
+memory leaks. I could not seem to figure out why this was happening, as I never
+called malloc explicitly. Unzipping a new openmplab.tgz and testing by
+multithreading a trivial for loop with nothing in it showed that memory leaks
+were detected. Thus it seems that the memory leak checker is buggy. I will
+ignore the memory leaks, as I believe the extra speedup I have introduced is
+enough bonus points to offset the memory leak penalty. Additionally one of the
+TA's said to not worry about the memory leaks. Thus I have finished the lab.

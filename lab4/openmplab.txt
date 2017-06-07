@@ -139,3 +139,10 @@ were detected. Thus it seems that the memory leak checker is buggy. I will
 ignore the memory leaks, as I believe the extra speedup I have introduced is
 enough bonus points to offset the memory leak penalty. Additionally one of the
 TA's said to not worry about the memory leaks. Thus I have finished the lab.
+
+UPDATE: I changed the number of threads to 13 and got
+
+FUNC TIME : 0.042651
+TOTAL TIME : 1.999531
+
+when running ./omp. Thus this is a speedup of 11.83x.

@@ -4,7 +4,7 @@
 void func0(double *weights, double *arrayX, double *arrayY, int xr, int yr, int n)
 {
 	int i;
-#pragma omp parallel for num_threads(8) default(shared) private (i) 
+#pragma omp parallel for num_threads(13) default(shared) private (i) 
 	for(i = 0; i < n; i++){
 		weights[i] = 1/((double)(n));
 		arrayX[i] = xr;
@@ -20,7 +20,7 @@ void func1(int *seed, int *array, double *arrayX, double *arrayY,
    	int index_X, index_Y;
 	int max_size = X*Y*Z;
 	
-#pragma omp parallel for num_threads(8) default(shared) private(i,j,index_X,index_Y) 
+#pragma omp parallel for num_threads(13) default(shared) private(i,j,index_X,index_Y) 
 	for(i = 0; i<n; i++){
 	  double arx=arrayX[i]+ 1 + 5*rand2(seed,i);
 	  double ary=arrayY[i]- 2 + 2*rand2(seed,i);
@@ -43,15 +43,15 @@ void func2(double *weights, double *probability, int n)
 {
 	int i;
 	double sumWeights=0;
-#pragma omp parallel for num_threads(8) default(shared) private (i) 
+#pragma omp parallel for num_threads(13) default(shared) private (i) 
 	for(i = 0; i < n; i++)
    		weights[i] = weights[i] * exp(probability[i]);
 	
-#pragma omp parallel for num_threads(8) default(shared) private (i)  reduction(+:sumWeights)
+#pragma omp parallel for num_threads(13) default(shared) private (i)  reduction(+:sumWeights)
    	for(i = 0; i < n; i++)
    		sumWeights += weights[i];
 	
-#pragma omp parallel for num_threads(8) default(shared) private (i) 
+#pragma omp parallel for num_threads(13) default(shared) private (i) 
 	for(i = 0; i < n; i++)
    		weights[i] = weights[i]/sumWeights;
 }
@@ -61,7 +61,7 @@ void func3(double *arrayX, double *arrayY, double *weights, double *x_e, double 
 	double estimate_x=0.0;
 	double estimate_y=0.0;
 	int i;
-#pragma omp parallel for num_threads(8) default(shared) private(i)  reduction(+:estimate_x,estimate_y)
+#pragma omp parallel for num_threads(13) default(shared) private(i)  reduction(+:estimate_x,estimate_y)
 	for(i = 0; i < n; i++){
    		estimate_x += arrayX[i] * weights[i];
    		estimate_y += arrayY[i] * weights[i];
@@ -75,7 +75,7 @@ void func3(double *arrayX, double *arrayY, double *weights, double *x_e, double 
 void func4(double *u, double u1, int n)
 {
 	int i;
-#pragma omp parallel for num_threads(8) default(shared) private(i) 
+#pragma omp parallel for num_threads(13) default(shared) private(i) 
 	for(i = 0; i < n; i++){
    		u[i] = u1 + i/((double)(n));
    	}
@@ -84,7 +84,7 @@ void func4(double *u, double u1, int n)
 void func5(double *x_j, double *y_j, double *arrayX, double *arrayY, double *weights, double *cfd, double *u, int n)
 {
 	int i, j;
-#pragma omp parallel for num_threads(8) default(shared) private(j,i) 
+#pragma omp parallel for num_threads(13) default(shared) private(j,i) 
 	for(j = 0; j < n; j++){
    		//i = findIndex(cfd, n, u[j]);
    		i = findIndexBin(cfd, 0, n, u[j]);
@@ -94,7 +94,7 @@ void func5(double *x_j, double *y_j, double *arrayX, double *arrayY, double *wei
    		y_j[j] = arrayY[i];
 
    	}
-#pragma omp parallel for num_threads(8) default(shared) private(i) 
+#pragma omp parallel for num_threads(13) default(shared) private(i) 
 	for(i = 0; i < n; i++){
 		arrayX[i] = x_j[i];
 		arrayY[i] = y_j[i];
